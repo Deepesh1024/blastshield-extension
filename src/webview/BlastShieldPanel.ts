@@ -9,6 +9,8 @@ export class BlastShieldPanel {
     private readonly _extensionUri: vscode.Uri;
     private _disposables: vscode.Disposable[] = [];
     private _messageHandler: ((message: any) => void) | undefined;
+    private _readyResolve?: () => void;
+    public readonly ready: Promise<void>;
 
     public static createOrShow(extensionUri: vscode.Uri) {
         const column = vscode.ViewColumn.One;
@@ -39,6 +41,11 @@ export class BlastShieldPanel {
         this._panel = panel;
         this._extensionUri = extensionUri;
 
+        // Create the ready promise so callers can await webview initialization
+        this.ready = new Promise<void>((resolve) => {
+            this._readyResolve = resolve;
+        });
+
         this._panel.webview.html = this._getHtmlContent();
         this._panel.iconPath = vscode.Uri.joinPath(extensionUri, 'logo', 'blastshield-logo.png');
 
@@ -46,6 +53,9 @@ export class BlastShieldPanel {
 
         this._panel.webview.onDidReceiveMessage(
             (message) => {
+                if (message.type === 'ready' && this._readyResolve) {
+                    this._readyResolve();
+                }
                 if (this._messageHandler) {
                     this._messageHandler(message);
                 }
