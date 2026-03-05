@@ -43,6 +43,8 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
+            let lastResult: any = null;
+
             // Notify the webview to start loading
             panel.postMessage({ type: 'scanStart' });
 
@@ -58,6 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const apiBaseUrl = process.env.BLASTSHIELD_API_URL || 'http://localhost:8000';
 
                 const result = await sendScanRequest(apiBaseUrl, zipBuffer);
+                lastResult = result;
 
                 // Step 3: Send results to webview
                 panel.postMessage({ type: 'scanResult', data: result });
@@ -80,6 +83,11 @@ export function activate(context: vscode.ExtensionContext) {
             // Handle messages from webview
             panel.onDidReceiveMessage(async (message: any) => {
                 switch (message.type) {
+                    case 'ready':
+                        if (lastResult) {
+                            panel.postMessage({ type: 'scanResult', data: lastResult });
+                        }
+                        break;
                     case 'runSimulation':
                         vscode.commands.executeCommand('blastshield.runSimulation');
                         break;

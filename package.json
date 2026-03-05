@@ -14,7 +14,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:blastshield.runSimulation"
+    "onCommand:blastshield.runSimulation",
+    "onView:blastshield-sidebar"
   ],
   "main": "./dist/extension.js",
   "contributes": {

@@ -17,7 +17,7 @@ export function getHtmlTemplate(options: HtmlTemplateOptions): string {
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
     style-src ${cspSource} 'unsafe-inline';
-    script-src 'nonce-${nonce}' 'unsafe-eval';
+    script-src 'nonce-${nonce}' ${cspSource} 'unsafe-eval';
     img-src ${cspSource} data: https:;
     font-src ${cspSource} data:;
     connect-src https: http:;

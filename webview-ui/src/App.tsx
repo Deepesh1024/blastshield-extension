@@ -64,6 +64,9 @@ export default function App() {
 
         window.addEventListener('message', handleMessage);
 
+        // Signal ready to VS Code extension
+        vscode.postMessage({ type: 'ready' });
+
         // Auto-trigger if we don't receive anything within 500ms (useful for local browser dev)
         const timeout = setTimeout(() => {
             if (status === 'idle' && !((window as any).acquireVsCodeApi)) {
