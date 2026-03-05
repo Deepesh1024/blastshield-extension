@@ -2,8 +2,12 @@
   "name": "blastshield-studio",
   "displayName": "BlastShield Studio",
   "description": "Production Stress Testing Lab inside VS Code — simulate traffic, failures, and edge cases before deployment.",
-  "version": "1.0.0",
+  "version": "0.0.10",
   "publisher": "blastshield",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Deepesh1024/blastshield-extension.git"
+  },
   "icon": "logo/blastshield-logo.png",
   "engines": {
     "vscode": "^1.85.0"
