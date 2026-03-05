@@ -9,14 +9,29 @@ export class BlastShieldPanel {
     private readonly _extensionUri: vscode.Uri;
     private _disposables: vscode.Disposable[] = [];
     private _messageHandler: ((message: any) => void) | undefined;
+
     private _readyResolve?: () => void;
-    public readonly ready: Promise<void>;
+    private _ready: Promise<void>;
+
+    public get ready(): Promise<void> {
+        return this._ready;
+    }
+
+    /** Reset the ready gate for the next scan run */
+    public resetReady() {
+        this._ready = new Promise<void>((resolve) => {
+            this._readyResolve = resolve;
+        });
+    }
 
     public static createOrShow(extensionUri: vscode.Uri) {
         const column = vscode.ViewColumn.One;
 
         if (BlastShieldPanel.currentPanel) {
             BlastShieldPanel.currentPanel._panel.reveal(column);
+            // Panel already exists — reset the ready gate so extension waits
+            // for the webview to confirm it's listening before sending new messages
+            BlastShieldPanel.currentPanel.resetReady();
             return;
         }
 
@@ -41,8 +56,8 @@ export class BlastShieldPanel {
         this._panel = panel;
         this._extensionUri = extensionUri;
 
-        // Create the ready promise so callers can await webview initialization
-        this.ready = new Promise<void>((resolve) => {
+        // Create the initial ready promise
+        this._ready = new Promise<void>((resolve) => {
             this._readyResolve = resolve;
         });
 
@@ -76,7 +91,6 @@ export class BlastShieldPanel {
     private _getHtmlContent(): string {
         const webview = this._panel.webview;
 
-        // URIs for webview-ui built assets
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this._extensionUri, 'dist', 'webview', 'index.js')
         );

@@ -34,6 +34,8 @@ export default function App() {
             const message = event.data;
             switch (message.type) {
                 case 'scanStart':
+                    // Re-signal ready so extension knows the webview is listening
+                    vscode.postMessage({ type: 'ready' });
                     setStatus('loading');
                     setIsDemo(false);
                     break;

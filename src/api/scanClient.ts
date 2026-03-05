@@ -51,31 +51,58 @@ export interface ScanResult {
     };
 }
 
+/** Sleep helper */
+function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function sendScanRequest(
     baseUrl: string,
     zipBuffer: Buffer,
     scenario?: { traffic: number; latency: number; failure_rate: number }
 ): Promise<ScanResult> {
-    const form = new FormData();
-    form.append('file', zipBuffer, {
-        filename: 'project.zip',
-        contentType: 'application/zip',
-    });
+    const maxRetries = 3;
 
-    if (scenario) {
-        form.append('scenario', JSON.stringify(scenario));
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const form = new FormData();
+        form.append('file', zipBuffer, {
+            filename: 'project.zip',
+            contentType: 'application/zip',
+        });
+
+        if (scenario) {
+            form.append('scenario', JSON.stringify(scenario));
+        }
+
+        const headers = {
+            ...form.getHeaders()
+        };
+
+        try {
+            const response = await axios.post<ScanResult>(`${baseUrl}/scan`, form, {
+                headers,
+                timeout: 120000, // 2 minutes
+                maxContentLength: 50 * 1024 * 1024,
+                maxBodyLength: 50 * 1024 * 1024,
+            });
+
+            return response.data;
+        } catch (error: any) {
+            const status = error?.response?.status;
+            // Retry on 503 (Lambda cold start / throttle) or 502 (gateway timeout)
+            const isRetryable = status === 503 || status === 502 || status === 429 || !status;
+
+            if (isRetryable && attempt < maxRetries) {
+                const delay = attempt * 3000; // 3s, 6s backoff
+                console.warn(`BlastShield: Attempt ${attempt} failed (${status ?? 'network error'}) — retrying in ${delay / 1000}s...`);
+                await sleep(delay);
+                continue;
+            }
+
+            // Final attempt failed — re-throw
+            throw error;
+        }
     }
 
-    const headers = {
-        ...form.getHeaders()
-    };
-
-    const response = await axios.post<ScanResult>(`${baseUrl}/scan`, form, {
-        headers,
-        timeout: 120000, // 2 minutes
-        maxContentLength: 50 * 1024 * 1024,
-        maxBodyLength: 50 * 1024 * 1024,
-    });
-
-    return response.data;
+    throw new Error('Failed after maximum retries');
 }
