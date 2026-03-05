@@ -1,5 +1,5 @@
 {
-  "name": "blastshield-studio",
+  "name": "blastshield",
   "displayName": "BlastShield Studio",
   "description": "Production Stress Testing Lab inside VS Code — simulate traffic, failures, and edge cases before deployment.",
   "version": "0.0.10",
