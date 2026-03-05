@@ -5,6 +5,7 @@ import { zipWorkspace } from './zip/workspaceZipper';
 import { sendScanRequest } from './api/scanClient';
 import { BlastShieldPanel } from './webview/BlastShieldPanel';
 import { BlastShieldSidebarProvider } from './webview/BlastShieldSidebarProvider';
+import { transformApiResponse } from './responseTransformer';
 
 export function activate(context: vscode.ExtensionContext) {
     dotenv.config({ path: path.resolve(context.extensionUri.fsPath, '.env') });
@@ -67,10 +68,12 @@ export function activate(context: vscode.ExtensionContext) {
 
                 vscode.window.showInformationMessage('BlastShield: Analysing with AI backend...');
                 const apiBaseUrl = process.env.BLASTSHIELD_API_URL || 'http://localhost:8000';
-                const result = await sendScanRequest(apiBaseUrl, zipBuffer);
+                const rawResult = await sendScanRequest(apiBaseUrl, zipBuffer);
 
-                // Log the raw API response so you can inspect it in VS Code Developer Tools
-                console.log('[BlastShield] Raw API response:', JSON.stringify(result, null, 2));
+                // Transform nested API response to the flat ScanResult shape the UI expects
+                const result = transformApiResponse(rawResult);
+
+                console.log('[BlastShield] Transformed result:', JSON.stringify(result, null, 2));
 
                 panel.postMessage({ type: 'scanResult', data: result });
                 vscode.window.showInformationMessage('BlastShield: Simulation complete.');
