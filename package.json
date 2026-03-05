@@ -1,0 +1,73 @@
+{
+  "name": "blastshield-studio",
+  "displayName": "BlastShield Studio",
+  "description": "Production Stress Testing Lab inside VS Code — simulate traffic, failures, and edge cases before deployment.",
+  "version": "1.0.0",
+  "publisher": "blastshield",
+  "icon": "logo/blastshield-logo.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Testing",
+    "Debuggers",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:blastshield.runSimulation"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "blastshield.runSimulation",
+        "title": "BlastShield: Run Production Simulation",
+        "icon": "$(shield)"
+      }
+    ],
+    "configuration": {
+      "title": "BlastShield Studio",
+      "properties": {}
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "blastshield-explorer",
+          "title": "BlastShield Studio",
+          "icon": "logo/blastshield-logo.png"
+        }
+      ]
+    },
+    "views": {
+      "blastshield-explorer": [
+        {
+          "type": "webview",
+          "id": "blastshield-sidebar",
+          "name": "Production Lab",
+          "icon": "$(shield)"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "build": "npm run compile && cd webview-ui && npm run build",
+    "build:webview": "cd webview-ui && npm run build",
+    "prepackage": "npm run build",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "axios": "^1.6.5",
+    "dotenv": "^17.3.1",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.5",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.19.11",
+    "typescript": "^5.3.3"
+  }
+}

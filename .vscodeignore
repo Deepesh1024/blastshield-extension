@@ -1,0 +1,10 @@
+node_modules
+.git
+.vscode
+src
+webview-ui
+esbuild.js
+tsconfig.json
+.eslintrc.json
+.prettierrc
+*.map
