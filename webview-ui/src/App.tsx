@@ -27,6 +27,8 @@ export default function App() {
     const [result, setResult] = useState<ScanResult | null>(null);
     const [activeNode, setActiveNode] = useState<string | undefined>();
     const [isDemo, setIsDemo] = useState(false);
+    const [baseScore, setBaseScore] = useState<number | undefined>();
+    const [scenarioScore, setScenarioScore] = useState<number | undefined>();
 
     useEffect(() => {
         // Listen for messages from the extension
@@ -41,24 +43,35 @@ export default function App() {
                     break;
                 case 'scanResult':
                     setResult(message.data);
+                    setBaseScore(message.data?.risk_score);
+                    setScenarioScore(undefined);
                     setStatus('success');
                     setIsDemo(false);
                     break;
                 case 'scanError':
-                    // Fallback to demo mode
                     console.error(message.error);
                     setResult(MOCK_DATA);
+                    setBaseScore(MOCK_DATA.risk_score);
+                    setScenarioScore(undefined);
                     setStatus('success');
                     setIsDemo(true);
                     break;
                 case 'scenarioResult':
                     if (result) {
-                        setResult({ ...result, ...message.data });
+                        const newResult = { ...result, ...message.data };
+                        setResult(newResult);
+                        setScenarioScore(newResult.risk_score);
                         setStatus('success');
                     }
                     break;
                 case 'scenarioError':
                     console.error(message.error);
+                    // Show demo scenario update on failure
+                    if (isDemo && result) {
+                        const demoScore = Math.min(100, result.risk_score + 8);
+                        setResult({ ...result, risk_score: demoScore });
+                        setScenarioScore(demoScore);
+                    }
                     setStatus('success');
                     break;
             }
@@ -94,20 +107,28 @@ export default function App() {
         setStatus('scenario');
         vscode.postMessage({ type: 'runScenario', data: scenario });
 
-        // Mock scenario update if in demo mode
+        // Simulate locally if in demo mode (backend may not support scenarios)
         if (isDemo && result) {
             setTimeout(() => {
-                setResult({
+                const trafficFactor = Math.max(1, scenario.traffic / 200);
+                const latencyImpact = Math.floor(scenario.latency / 500);
+                const failureImpact = Math.floor(scenario.failure_rate / 10);
+                const newScore = Math.min(100, Math.round(result.risk_score * trafficFactor) + latencyImpact + failureImpact);
+                const updated = {
                     ...result,
-                    risk_score: Math.min(100, result.risk_score + (scenario.failure_rate / 2)),
+                    risk_score: newScore,
+                    severity: (newScore >= 76 ? 'CRITICAL' : newScore >= 51 ? 'HIGH' : newScore >= 26 ? 'MEDIUM' : 'LOW') as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
                     evidence: {
                         ...result.evidence,
-                        timeouts: result.evidence.timeouts + Math.floor(scenario.latency / 100),
-                        exceptions: result.evidence.exceptions + scenario.failure_rate * 5,
+                        timeouts: result.evidence.timeouts + latencyImpact * 3,
+                        exceptions: result.evidence.exceptions + failureImpact * 10,
+                        slow_responses: result.evidence.slow_responses + latencyImpact * 5,
                     }
-                });
+                };
+                setResult(updated);
+                setScenarioScore(newScore);
                 setStatus('success');
-            }, 1500);
+            }, 1800);
         }
     };
 
@@ -234,6 +255,8 @@ export default function App() {
             <WhatIfSimulation
                 onRunScenario={handleRunScenario}
                 isSimulating={status === 'scenario'}
+                baseScore={baseScore}
+                scenarioScore={scenarioScore}
             />
         </div>
     );
