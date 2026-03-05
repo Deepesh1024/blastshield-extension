@@ -114,9 +114,7 @@ export function transformApiResponse(raw: any): ScanResult {
 
     // --- Postmortem ---
     const postmortem = {
-        summary: ai?.explanation
-            ? ai.explanation.substring(0, 150) + '...'
-            : 'Production simulation complete.',
+        summary: ai?.explanation || 'Production simulation complete.',
         root_cause: dep?.groq_analysis?.probable_root_cause || root_cause[0] || 'See failure points.',
         impact: `Risk score: ${ai?.risk_score ?? 0}/100. ${(ai?.blast_radius || []).join(', ')} affected.`,
         timeline_narrative: timelineRaw.replace(/\n/g, ' → '),
