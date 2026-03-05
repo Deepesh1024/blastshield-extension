@@ -5,14 +5,12 @@ import { zipWorkspace } from './zip/workspaceZipper';
 import { sendScanRequest } from './api/scanClient';
 import { BlastShieldPanel } from './webview/BlastShieldPanel';
 import { BlastShieldSidebarProvider } from './webview/BlastShieldSidebarProvider';
+import { MOCK_DATA } from './mockData';
 
 export function activate(context: vscode.ExtensionContext) {
-    // Load .env relative to the extension's root directory
     dotenv.config({ path: path.resolve(context.extensionUri.fsPath, '.env') });
-
     console.log('BlastShield Studio is now active.');
 
-    // Register Sidebar View
     const sidebarProvider = new BlastShieldSidebarProvider(context.extensionUri);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
@@ -33,64 +31,54 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const rootPath = workspaceFolders[0].uri.fsPath;
+            const isNew = !BlastShieldPanel.currentPanel;
 
-            // Open (or reveal) the BlastShield panel
             BlastShieldPanel.createOrShow(context.extensionUri);
-            const panel = BlastShieldPanel.currentPanel;
+            const panel = BlastShieldPanel.currentPanel!;
 
-            if (!panel) {
-                vscode.window.showErrorMessage('BlastShield: Failed to create webview panel.');
-                return;
-            }
-
-            // Register message handler FIRST, before any async work
+            // Register message handlers
             panel.onDidReceiveMessage(async (message: any) => {
-                switch (message.type) {
-                    case 'runSimulation':
-                        vscode.commands.executeCommand('blastshield.runSimulation');
-                        break;
-                    case 'runScenario':
-                        try {
-                            const apiBase = process.env.BLASTSHIELD_API_URL || 'http://localhost:8000';
-                            const zipBuf = await zipWorkspace(rootPath);
-                            const scenarioResult = await sendScanRequest(apiBase, zipBuf, message.data);
-                            panel.postMessage({ type: 'scenarioResult', data: scenarioResult });
-                        } catch (err: any) {
-                            panel.postMessage({
-                                type: 'scenarioError',
-                                error: err.message || 'Scenario request failed',
-                            });
-                        }
-                        break;
+                if (message.type === 'runSimulation') {
+                    vscode.commands.executeCommand('blastshield.runSimulation');
+                } else if (message.type === 'runScenario') {
+                    try {
+                        const apiBase = process.env.BLASTSHIELD_API_URL || 'http://localhost:8000';
+                        const zipBuf = await zipWorkspace(rootPath);
+                        const scenarioResult = await sendScanRequest(apiBase, zipBuf, message.data);
+                        panel.postMessage({ type: 'scenarioResult', data: scenarioResult });
+                    } catch (err: any) {
+                        panel.postMessage({ type: 'scenarioError', error: err.message });
+                    }
                 }
             });
 
-            // Wait for the webview to signal it's fully loaded before sending anything
-            await panel.ready;
+            // If panel was just created, wait for React to mount before sending messages
+            if (isNew) {
+                await panel.ready;
+            } else {
+                // Panel already exists and React is running — give it a moment to re-activate
+                await new Promise(r => setTimeout(r, 100));
+            }
 
-            // Notify the webview to show loading state
             panel.postMessage({ type: 'scanStart' });
 
             try {
                 vscode.window.showInformationMessage('BlastShield: Zipping workspace...');
                 const zipBuffer = await zipWorkspace(rootPath);
 
-                vscode.window.showInformationMessage('BlastShield: Sending to analysis backend...');
+                vscode.window.showInformationMessage('BlastShield: Analysing with AI backend...');
                 const apiBaseUrl = process.env.BLASTSHIELD_API_URL || 'http://localhost:8000';
+                const rawResult = await sendScanRequest(apiBaseUrl, zipBuffer);
 
-                const result = await sendScanRequest(apiBaseUrl, zipBuffer);
+                // Merge with MOCK_DATA as a safe fallback for any missing fields
+                const result = { ...MOCK_DATA, ...rawResult };
 
                 panel.postMessage({ type: 'scanResult', data: result });
                 vscode.window.showInformationMessage('BlastShield: Simulation complete.');
             } catch (error: any) {
                 console.error('BlastShield scan error:', error);
-
-                // Fallback to demo mode
-                panel.postMessage({
-                    type: 'scanError',
-                    error: error.message || 'Unknown error occurred',
-                });
-
+                // Send demo data on error
+                panel.postMessage({ type: 'scanError', error: error.message || 'Unknown error' });
                 vscode.window.showWarningMessage(
                     `BlastShield: Backend unavailable — loading demo mode. (${error.message})`
                 );

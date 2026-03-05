@@ -10,28 +10,15 @@ export class BlastShieldPanel {
     private _disposables: vscode.Disposable[] = [];
     private _messageHandler: ((message: any) => void) | undefined;
 
+    // Resolves once the webview signals it's ready (first mount only)
     private _readyResolve?: () => void;
-    private _ready: Promise<void>;
-
-    public get ready(): Promise<void> {
-        return this._ready;
-    }
-
-    /** Reset the ready gate for the next scan run */
-    public resetReady() {
-        this._ready = new Promise<void>((resolve) => {
-            this._readyResolve = resolve;
-        });
-    }
+    public readonly ready: Promise<void>;
 
     public static createOrShow(extensionUri: vscode.Uri) {
         const column = vscode.ViewColumn.One;
 
         if (BlastShieldPanel.currentPanel) {
             BlastShieldPanel.currentPanel._panel.reveal(column);
-            // Panel already exists — reset the ready gate so extension waits
-            // for the webview to confirm it's listening before sending new messages
-            BlastShieldPanel.currentPanel.resetReady();
             return;
         }
 
@@ -56,8 +43,7 @@ export class BlastShieldPanel {
         this._panel = panel;
         this._extensionUri = extensionUri;
 
-        // Create the initial ready promise
-        this._ready = new Promise<void>((resolve) => {
+        this.ready = new Promise<void>((resolve) => {
             this._readyResolve = resolve;
         });
 
@@ -70,6 +56,8 @@ export class BlastShieldPanel {
             (message) => {
                 if (message.type === 'ready' && this._readyResolve) {
                     this._readyResolve();
+                    // Prevent re-calling on subsequent ready signals
+                    this._readyResolve = undefined;
                 }
                 if (this._messageHandler) {
                     this._messageHandler(message);
